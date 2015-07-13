@@ -1,0 +1,19 @@
+kit:
+  name: "Selenium-on-Mesos"
+  link: https://github.com/qubell-bazaar/component-mesos 
+  applications:
+    - name: "Mesos"
+      manifest: https://raw.github.com/qubell-bazaar/component-mesos/1.0-42p/component-mesos.yml
+    - name: "Zookeeper"
+      manifest: https://raw.github.com/qubell-bazaar/component-zookeeper-dev/1.2-41p/component-zookeeper-dev.yml
+    - name: "VM"
+      manifest: https://raw.github.com/qubell-bazaar/component-mesos/1.0-42p/vm.yml
+  provider:
+    name: "Qubell"
+    link: http://qubell.com
+  documentation:
+    overview: |
+      This application requires the following items to be configured in your environment:
+        * Amazon EC2 or Rackspace CloudServers account;
+        * Ports  5050, 8080 open on the ﬁrewall.
+      Please refer to the Getting Started for step-by-step instructions on how to configure your environment.

@@ -1,0 +1,221 @@
+##Maven builder
+application:
+  configuration:
+    configuration.node-count: 1
+  interfaces:
+    configuration:
+      node-count: "bind(nodes#input.node-count)"
+    selenium:
+      selenium-hub: "bind(url#connection.url)"
+ 
+  bindings:
+   - [mesos, hub]
+   - [hub, url]
+   - [url, nodes]
+   - [mesos,nodes]
+      
+  components:
+    url:
+      type: cobalt.common.HttpEndpoint
+
+    mesos:
+      type: reference.Submodule
+      configuration:
+        __locator.application-id: "Mesos"
+      interfaces:
+        mesos:
+          marathon-urls:
+            type: publish-signal(list<string>)
+    nodes:
+      type: workflow.Instance
+      interfaces:
+        input:
+          node-count: configuration(int)
+        mesos:
+          marathon-urls: consume-signal(list<string>)
+        hub:
+          url: consume-signal(string)
+      required: [mesos, hub]
+      configuration:
+        configuration.triggers:
+          input.node-count:   scale
+        configuration.propagateStatus:  
+          - scale
+        configuration.workflows:
+          launch:
+            steps:
+              - get-signals:
+                  action: getSignals
+                  output:
+                    signals: result
+              - install-node-chrome:
+                  action: restcall
+                  parameters:
+                      retryCount: 20
+                      command: "{$.signals.mesos.marathon-urls[0]}/v2/apps"
+                      method: POST
+                      contentType: application/json
+                      body:
+                        "container": 
+                          "type": "DOCKER"
+                          "docker": 
+                              "image": "selenium/node-chrome:2.46.0"
+                              "network": "BRIDGE"
+                              "portMappings": 
+                                  - "containerPort": 5555
+                                    "hostPort": 0
+                                    "servicePort": 31120
+                                    "protocol": "tcp" 
+                        "id": "selenium-node-chrome"
+                        "instances": "{$.node-count}"
+                        "cpus": 0.5
+                        "mem": 512
+                        "uris": []
+                        "cmd": "REMOTE_HOST=http://$$HOST:$$PORT0 HUB_PORT_4444_TCP_ADDR=`wget -q -O - {$.signals.mesos.marathon-urls[0]}/v2/tasks |grep hub|awk '{{print $$3}}'|awk -F':' '{{print $$1}}'` HUB_PORT_4444_TCP_PORT=`wget -q -O - {$.signals.mesos.marathon-urls[0]}/v2/tasks 2>/dev/null|grep hub|awk '{{print $$3}}'|awk -F':' '{{print $$2}}'` /opt/bin/entry_point.sh"
+              - install-node-ff:
+                  action: restcall
+                  precedingPhases: [ install-node-chrome ]
+                  parameters:
+                      retryCount: 20
+                      command: "{$.signals.mesos.marathon-urls[0]}/v2/apps"
+                      method: POST
+                      contentType: application/json
+                      body:
+                        "container": 
+                          "type": "DOCKER"
+                          "docker": 
+                              "image": "selenium/node-firefox:2.46.0"
+                              "network": "BRIDGE"
+                              "portMappings": 
+                                  - "containerPort": 5555
+                                    "hostPort": 0
+                                    "servicePort": 31121
+                                    "protocol": "tcp" 
+                        "id": "selenium-node-firefox"
+                        "instances": "{$.node-count}"
+                        "cpus": 0.5
+                        "mem": 512
+                        "uris": []
+                        "cmd": "REMOTE_HOST=http://$$HOST:$$PORT0 HUB_PORT_4444_TCP_ADDR=`wget -q -O - {$.signals.mesos.marathon-urls[0]}/v2/tasks |grep hub|awk '{{print $$3}}'|awk -F':' '{{print $$1}}'` HUB_PORT_4444_TCP_PORT=`wget -q -O - {$.signals.mesos.marathon-urls[0]}/v2/tasks 2>/dev/null|grep hub|awk '{{print $$3}}'|awk -F':' '{{print $$2}}'` /opt/bin/entry_point.sh"
+          scale:
+            steps:
+              - get-signals:
+                  action: getSignals
+                  output:
+                    signals: result
+              - scale-node:
+                  action: restcall
+                  precedingPhases: [ get-signals ]
+                  parameters:
+                      command: "{$.signals.mesos.marathon-urls[0]}/v2/apps/selenium-node-chrome"
+                      method: PUT
+                      contentType: application/json
+                      body:
+                        "container": 
+                          "type": "DOCKER"
+                          "docker": 
+                              "image": "selenium/node-chrome:2.46.0"
+                              "network": "BRIDGE"
+                              "portMappings": 
+                                 - "containerPort": 5555
+                                   "hostPort": 0
+                                   "servicePort": 31120
+                                   "protocol": "tcp" 
+                        "instances": "{$.node-count}"
+                        "cpus": 0.5
+                        "mem": 512
+                        "uris": []
+                        "cmd": "REMOTE_HOST=http://$$HOST:$$PORT0 HUB_PORT_4444_TCP_ADDR=`wget -q -O - {$.signals.mesos.marathon-urls[0]}/v2/tasks |grep hub|awk '{{print $$3}}'|awk -F':' '{{print $$1}}'` HUB_PORT_4444_TCP_PORT=`wget -q -O - {$.signals.mesos.marathon-urls[0]}/v2/tasks 2>/dev/null|grep hub|awk '{{print $$3}}'|awk -F':' '{{print $$2}}'` /opt/bin/entry_point.sh"
+
+    hub:
+      type: workflow.Instance
+      interfaces:
+        mesos:
+          marathon-urls: consume-signal(list<string>)
+        result:
+          url: publish-signal(string)
+      required: [mesos]
+      configuration:
+        configuration.workflows:
+          launch:
+            steps:
+              - get-signals:
+                  action: getSignals
+                  output:
+                    signals: result
+              - install-hub:
+                  action: restcall
+                  precedingPhases: [ get-signals ]
+                  parameters:
+                      retryCount: 20
+                      command: "{$.signals.mesos.marathon-urls[0]}/v2/apps"
+                      method: POST
+                      contentType: application/json
+                      body:
+                        "container": 
+                          "type": "DOCKER"
+                          "docker": 
+                              "image": "selenium/hub:2.46.0"
+                              "network": "BRIDGE"
+                              "portMappings": 
+                                  - "containerPort": 4444
+                                    "hostPort": 0
+                                    "servicePort": 31117
+                                    "protocol": "tcp"
+                        "id": "selenium-hub"
+                        "instances": 1
+                        "cpus": 0.5
+                        "mem": 512
+                        "uris": []
+                        "cmd": "/opt/bin/entry_point.sh"
+                        "healthChecks":
+                            - "protocol": "HTTP"
+                              "portIndex": 0
+                              "path": "/"
+                              "gracePeriodSeconds": 300
+                              "intervalSeconds": 5
+                              "maxConsecutiveFailures": 3
+              - await-before-get-results:
+                      action: wait
+                      description: Sample step that waits for 2 minute.
+                      precedingPhases: [install-hub]
+                      parameters:
+                        delay: 120
+              - get-results:
+                  action: .get-results
+                  precedingPhases: [ await-before-get-results ]
+                  parameters:
+                    marathon-urls: "{$.signals.mesos.marathon-urls[0]}"
+                  output:
+                    selenium-hub-url: result
+            return: ### Values returned from workflow
+              url:
+                value: "{$.selenium-hub-url[0]}"
+          
+                    
+          .get-results:
+            parameters:
+              marathon-urls:
+                description: marathon url
+            steps:
+              - get-hub:
+                  action: restcall
+                  parameters:
+                        command: "{$.marathon-urls}/v2/apps/selenium-hub/tasks"
+                        headers:
+                          Accept: application/json
+                        method: GET
+                  output:
+                    hub: content
+              - serialize:
+                  action: serialize
+                  precedingPhases: [ get-hub ]
+                  parameters:
+                    input: "http://{$.hub.tasks[0].host}:{$.hub.tasks[0].ports}"
+                    format: JSON
+                  output:
+                    single_var: serialized
+            return:
+              result:
+                value: "{$.single_var}"
+            
