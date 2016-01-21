@@ -3,11 +3,11 @@ kit:
   link: https://github.com/qubell-bazaar/component-mesos 
   applications:
     - name: "Mesos"
-      manifest: https://raw.github.com/qubell-bazaar/component-mesos/1.0-42p/component-mesos.yml
+      manifest: https://raw.github.com/qubell-bazaar/component-mesos/1.1-43p/component-mesos.yml
     - name: "Zookeeper"
       manifest: https://raw.github.com/qubell-bazaar/component-zookeeper-dev/1.2-41p/component-zookeeper-dev.yml
     - name: "VM"
-      manifest: https://raw.github.com/qubell-bazaar/component-mesos/1.0-42p/vm.yml
+      manifest: https://raw.github.com/qubell-bazaar/component-mesos/1.1-43p/vm.yml
   provider:
     name: "Qubell"
     link: http://qubell.com
